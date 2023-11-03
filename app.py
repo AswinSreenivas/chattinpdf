@@ -6,6 +6,9 @@ from langchain.embeddings import HuggingFaceInstructEmbeddings
 from langchain.vectorstores import FAISS
 from htmltemplates import user_template, bot_template
 
+# User profiles (temporary storage in memory)
+user_profiles = {}
+
 class ChatOpenAI:
     pass  # Define the ChatOpenAI class or import it from the correct module
 
@@ -41,16 +44,20 @@ def get_conversation_chain(vectorstore):
     return conversation_chain
 
 def handle_userinput(user_question):
-    response = st.session_state.conversation({'question': user_question})
-    st.session_state.chat_history = response['chat_history']
+    if 'user_id' not in st.session_state:
+        st.session_state.user_id = st.text_input("Enter your user ID")
+    
+    if 'chat_history' not in st.session_state:
+        st.session_state.chat_history = []
 
-    for i, message in enumerate(st.session_state.chat_history):
+    response = st.session_state.conversation({'user_id': st.session_state.user_id, 'question': user_question})
+    st.session_state.chat_history.append(response['chat_history'])
+
+    for i, message in enumerate(response['chat_history']):
         if i % 2 == 0:
-            st.write(user_template.replace(
-                "{{MSG}}", message.content), unsafe_allow_html=True)
+            st.write(user_template.replace("{{MSG}}", message.content), unsafe_allow_html=True)
         else:
-            st.write(bot_template.replace(
-                "{{MSG}}", message.content), unsafe_allow_html=True)
+            st.write(bot_template.replace("{{MSG}}", message.content), unsafe_allow_html=True)
 
 def get_vector_store(text_chunks):
     embeddings = HuggingFaceInstructEmbeddings(model_name="hkunlp/instructor-xl")
@@ -83,6 +90,13 @@ def main():
 
     if user_question:
         handle_userinput(user_question)
+
+    # Display chat history
+    st.subheader("Chat History")
+    for i, chat_entry in enumerate(st.session_state.chat_history):
+        st.write(f"User: {chat_entry['user_message']}")
+        st.write(f"Bot: {chat_entry['bot_response']}")
+        st.write("")
 
 if __name__ == '__main__':
     main()
